@@ -2,7 +2,16 @@
 const path = require("path");
 const sqlite3 = require("sqlite3").verbose();
 const app = express();
-
+const nodemailer = require("nodemailer");
+const transporter = nodemailer.createTransport({
+  host: "smtp.office365.com",
+  port: 587,
+  secure: false,
+  auth: {
+    user: "ahmed.rashed@icapp.com.eg",
+    pass: "123456Mm"
+  }
+});
 // Suppress SQLite verbose logging in production
 if (process.env.NODE_ENV === 'production') {
   sqlite3.verbose = () => sqlite3;
@@ -152,7 +161,51 @@ app.post('/send', async (req, res) => {
        DO UPDATE SET actual = excluded.actual, budget = excluded.budget`,
       [kpi, month, numericActual, numericBudget]
     );
+// ✅ SEND EMAIL
+await transporter.sendMail({
+  from: '"Packing System" <ahmed.rashed@icapp.com.eg>',
+  to: "ahmed.rashed@icapp.com.eg",
+  subject: "🚨 New Snag Added",
+  text: `
+New Snag Added!
 
+KPI: ${kpi}
+Month: ${month}
+Actual: ${numericActual}
+Budget: ${numericBudget}
+
+Please check immediately.
+  `
+});
+
+console.log("✅ Email sent");
+  );
+
+  // ✅ ADD EMAIL HERE
+  await transporter.sendMail({
+    from: '"Packing System" <ahmed.rashed@icapp.com.eg>',
+    to: "ahmed.rashed@icapp.com.eg",
+    subject: "🚨 New Snag Added",
+    text: `
+New Snag Added!
+
+KPI: ${kpi}
+Month: ${month}
+Actual: ${numericActual}
+Budget: ${numericBudget}
+
+Please check immediately.
+    `
+  });
+
+  console.log("✅ Email sent");
+
+  res.json({ success: true });
+
+} catch (error) {
+  console.error("❌ Error:", error.message);
+  res.status(500).json({ error: "Failed to save data" });
+}
     res.json({ success: true });
   } catch (error) {
     console.error("Failed to save data:", error.message);

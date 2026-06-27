@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "express": "^5.2.1",
+    "nodemailer": "^9.0.1",
     "sqlite3": "^5.1.7"
   },
   "devDependencies": {
