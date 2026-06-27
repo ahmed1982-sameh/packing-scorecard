@@ -17,16 +17,14 @@ const initialData = {
   emp: { actual: [45, 46, 47, 45, 48, 50, 47, 46, 49, 51, 48, 47], budget: [45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45] },
   casual: { actual: [8, 9, 10, 7, 11, 12, 10, 9, 11, 13, 10, 9], budget: [10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10] }
 };
+
 const knownKpis = Object.freeze(Object.keys(initialData));
 
 function runSql(sql, params = []) {
   return new Promise((resolve, reject) => {
     db.run(sql, params, function (err) {
-      if (err) {
-        reject(err);
-      } else {
-        resolve(this);
-      }
+      if (err) reject(err);
+      else resolve(this);
     });
   });
 }
@@ -34,11 +32,8 @@ function runSql(sql, params = []) {
 function getSql(sql, params = []) {
   return new Promise((resolve, reject) => {
     db.get(sql, params, (err, row) => {
-      if (err) {
-        reject(err);
-      } else {
-        resolve(row);
-      }
+      if (err) reject(err);
+      else resolve(row);
     });
   });
 }
@@ -46,11 +41,8 @@ function getSql(sql, params = []) {
 function allSql(sql, params = []) {
   return new Promise((resolve, reject) => {
     db.all(sql, params, (err, rows) => {
-      if (err) {
-        reject(err);
-      } else {
-        resolve(rows);
-      }
+      if (err) reject(err);
+      else resolve(rows);
     });
   });
 }
@@ -73,9 +65,10 @@ async function initializeDatabase() {
   `);
 
   const row = await getSql("SELECT COUNT(*) AS count FROM scorecard");
+
   if (row.count === 0) {
     for (const [kpi, values] of Object.entries(initialData)) {
-      for (let month = 0; month < 12; month += 1) {
+      for (let month = 0; month < 12; month++) {
         await runSql(
           "INSERT INTO scorecard (kpi, month, actual, budget) VALUES (?, ?, ?, ?)",
           [kpi, month, values.actual[month], values.budget[month]]
@@ -85,62 +78,51 @@ async function initializeDatabase() {
   }
 }
 
-function buildDataPayload(rows) {
-  const data = Object.fromEntries(
-    knownKpis.map((kpi) => [kpi, { actual: Array(12).fill(0), budget: Array(12).fill(0) }])
-  );
-
-  rows.forEach((row) => {
-    if (!data[row.kpi]) {
-      data[row.kpi] = { actual: Array(12).fill(0), budget: Array(12).fill(0) };
-    }
-
-    data[row.kpi].actual[row.month] = row.actual;
-    data[row.kpi].budget[row.month] = row.budget;
-  });
-
-  return data;
-}
+// ===== ROUTES =====
 
 app.use(express.static(__dirname));
 app.use(express.json());
-app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'dashboard.html')));
+
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'dashboard.html'));
+});
 
 app.get('/data', async (req, res) => {
   try {
     const rows = await allSql("SELECT kpi, month, actual, budget FROM scorecard ORDER BY kpi, month");
-    res.json(buildDataPayload(rows));
+    res.json(rows);
   } catch (error) {
-    console.error("Failed to fetch data:", error.message);
     res.status(500).json({ error: "Failed to fetch data" });
   }
 });
 
 app.post('/send', async (req, res) => {
   const { kpi, month, actual, budget } = req.body;
-  const numericActual = Number(actual) || 0;
-  const numericBudget = Number(budget) || 0;
 
-  if (!knownKpis.includes(kpi) || !Number.isInteger(month) || month < 0 || month > 11) {
+  if (!knownKpis.includes(kpi)) {
     return res.status(400).json({ error: "Invalid input" });
   }
 
   try {
     await runSql(
-      "INSERT INTO scorecard (kpi, month, actual, budget) VALUES (?, ?, ?, ?) ON CONFLICT(kpi, month) DO UPDATE SET actual = excluded.actual, budget = excluded.budget",
-      [kpi, month, numericActual, numericBudget]
+      "INSERT INTO scorecard (kpi, month, actual, budget) VALUES (?, ?, ?, ?) ON CONFLICT(kpi, month) DO UPDATE SET actual=excluded.actual, budget=excluded.budget",
+      [kpi, month, actual, budget]
     );
 
-    res.json({ message: "Saved" });
-  } catch (error) {
-    console.error("Failed to save data:", error.message);
-    res.status(500).json({ error: "Failed to save data" });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: "Save error" });
   }
 });
 
+// ✅ الجزء المهم المصحح
+const PORT = process.env.PORT || 3000;
+
 initializeDatabase()
   .then(() => {
-    app.listen(3000, () => console.log("Server running on http://localhost:3000"));
+    app.listen(PORT, () => {
+      console.log(`✅ Server running on port ${PORT}`);
+    });
   })
   .catch((error) => {
     console.error("Database initialization failed:", error.message);
