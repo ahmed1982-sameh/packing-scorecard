@@ -161,25 +161,7 @@ app.post('/send', async (req, res) => {
        DO UPDATE SET actual = excluded.actual, budget = excluded.budget`,
       [kpi, month, numericActual, numericBudget]
     );
-// ✅ SEND EMAIL
-await transporter.sendMail({
-  from: '"Packing System" <ahmed.rashed@icapp.com.eg>',
-  to: "ahmed.rashed@icapp.com.eg",
-  subject: "🚨 New Snag Added",
-  text: `
-New Snag Added!
 
-KPI: ${kpi}
-Month: ${month}
-Actual: ${numericActual}
-Budget: ${numericBudget}
-
-Please check immediately.
-  `
-});
-
-console.log("✅ Email sent");
-  );
 
   // ✅ ADD EMAIL HERE
   await transporter.sendMail({
