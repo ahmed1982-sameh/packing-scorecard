@@ -144,13 +144,29 @@ app.post('/send', async (req, res) => {
     return res.status(400).json({ error: "Invalid input" });
   }
 
-// 404 fallback handler
+  try {
+    await runSql(
+      `INSERT INTO scorecard (kpi, month, actual, budget)
+       VALUES (?, ?, ?, ?)
+       ON CONFLICT(kpi, month)
+       DO UPDATE SET actual = excluded.actual, budget = excluded.budget`,
+      [kpi, month, numericActual, numericBudget]
+    );
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Failed to save data:", error.message);
+    res.status(500).json({ error: "Failed to save data" });
+  }
+});
+
+
+// 404 fallback
 app.use((req, res) => {
-  console.warn(`404: Route not found: ${req.method} ${req.path}`);
   res.status(404).json({ error: "Route not found" });
 });
 
-// Error handler
+// error handler
 app.use((err, req, res, next) => {
   console.error("Server error:", err.message);
   res.status(500).json({ error: "Internal server error" });
@@ -162,22 +178,7 @@ initializeDatabase()
   .then(() => {
     app.listen(PORT, () => {
       console.log(`✅ Server running on port ${PORT}`);
-      console.log(`📊 Dashboard: http://localhost:${PORT}`);
-      console.log(`📡 API: http://localhost:${PORT}/data`);
     });
-  })
-  .catch((error) => {
-    console.error("❌ 
-    console.error("Failed to save data:", error.message);
-    res.status(500).json({ error: "Failed to save data" });
-  }
-});
-
-const PORT = process.env.PORT || 3000;
-
-initializeDatabase()
-  .then(() => {
-    app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
   })
   .catch((error) => {
     console.error("Database initialization failed:", error.message);
