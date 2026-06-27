@@ -1,0 +1,585 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Packing Score Card</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body { margin: 0; font-family: 'Segoe UI', Arial, sans-serif; background: linear-gradient(135deg, #f8fbff 0%, #eef4ff 100%); color: #0f172a; }
+    .sidebar { position: fixed; left: 0; top: 0; width: 220px; height: 100%; background: linear-gradient(180deg, #0f172a 0%, #111c3d 100%); color: white; padding: 20px 14px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; }
+    .sidebar .logo { font-size: 18px; font-weight: bold; text-align: center; padding: 12px; border-radius: 14px; background: rgba(255,255,255,0.08); margin-bottom: 8px; }
+    .sidebar .section-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.12em; color: #94a3b8; margin: 10px 8px 4px; }
+    .sidebar button { border: none; background: transparent; color: white; text-align: left; padding: 12px 14px; border-radius: 12px; cursor: pointer; transition: 0.2s; width: 100%; font-size: 15px; display: flex; align-items: center; gap: 8px; font-weight: 600; }
+    .sidebar button:hover, .sidebar button.active { background: rgba(59, 130, 246, 0.22); box-shadow: inset 0 0 0 1px rgba(147, 197, 253, 0.25); }
+    .sidebar button.special { margin-top: 6px; background: linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%); color: #111827; font-weight: bold; font-size: 16px; padding: 13px 15px; }
+    .sidebar .highlight-btn { font-size: 16px; padding: 13px 15px; background: rgba(37, 99, 235, 0.2); border: 1px solid rgba(147, 197, 253, 0.35); }
+    .sidebar .highlight-btn.active { background: rgba(37, 99, 235, 0.35); }
+    .main { margin-left: 240px; padding: 28px 30px 40px; }
+    .page { display: none; }
+    .page.active { display: block; }
+    .page h1 { margin: 0 0 18px; font-size: 28px; color: #0f172a; letter-spacing: -0.02em; font-weight: 800; padding: 14px 18px; border-radius: 16px; background: linear-gradient(135deg, #f8fbff 0%, #e8f1ff 100%); border: 1px solid #dbeafe; box-shadow: 0 8px 20px rgba(15,23,42,0.04); display: inline-block; }
+    .cards { display: flex; gap: 16px; margin-bottom: 24px; padding-bottom: 6px; flex-wrap: wrap; }
+    .card { position: relative; display: flex; flex-direction: column; justify-content: space-between; flex: 1 1 220px; max-width: 260px; background: linear-gradient(135deg, #ffffff 0%, #f8fbff 100%); border: 1px solid #dbeafe; border-radius: 18px; padding: 18px 18px 18px 20px; box-shadow: 0 10px 24px rgba(15,23,42,0.06); cursor: pointer; transition: transform 0.2s ease, box-shadow 0.2s ease; overflow: hidden; min-height: 128px; }
+    .card:hover { transform: translateY(-3px); box-shadow: 0 16px 32px rgba(15,23,42,0.1); }
+    .card::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 5px; background: linear-gradient(180deg, #94a3b8 0%, #64748b 100%); }
+    .card.good::before { background: linear-gradient(180deg, #34d399 0%, #16a34a 100%); }
+    .card.bad::before { background: linear-gradient(180deg, #fda4af 0%, #dc2626 100%); }
+    .card .icon { font-size: 22px; margin-bottom: 8px; display: inline-flex; width: 42px; height: 42px; align-items: center; justify-content: center; border-radius: 50%; background: #f8fafc; }
+    .card .card-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+    .card h3 { margin: 0 0 6px; font-size: 15px; color: #0f172a; }
+    .card p { margin: 0; font-size: 24px; font-weight: 700; color: #111827; }
+    .card .card-meta { margin-top: 4px; color: #64748b; font-size: 13px; }
+    .card .card-status { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: #64748b; }
+    .card.good .card-status { color: #166534; }
+    .card.bad .card-status { color: #991b1b; }
+    .chart-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; margin-top: 22px; }
+    .chart-box { background: white; border: 2px solid #3b82f6; border-radius: 14px; padding: 12px; min-height: 260px; box-shadow: 0 12px 24px rgba(15,23,42,0.06); width: 100%; }
+    .chart-box canvas { width: 100%; height: 100%; }
+    table { width: 100%; border-collapse: collapse; margin-top: 18px; background: white; border-radius: 14px; overflow: hidden; }
+    th, td { padding: 12px 10px; border: 1px solid #dbeafe; text-align: center; }
+    th { background: #2563eb; color: white; font-weight: 700; font-size: 13px; letter-spacing: 0.02em; }
+    .snag-shell { display: flex; flex-direction: column; gap: 16px; }
+    .snag-summary-row { display: flex; justify-content: space-between; align-items: stretch; gap: 16px; }
+    .snag-summary-counters { display: flex; gap: 12px; flex-wrap: wrap; justify-content: flex-end; margin-left: auto; }
+    .snag-summary-left { display: flex; align-items: center; gap: 16px; flex: 1; }
+    .counter-card { min-width: 150px; padding: 16px 18px; border-radius: 18px; background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%); border: 1px solid #e2e8f0; box-shadow: 0 10px 22px rgba(15,23,42,0.06); text-align: center; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+    .counter-card.open { background: linear-gradient(135deg, #fff5f5 0%, #fee2e2 100%); border-color: #fda4af; }
+    .counter-card.closed { background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border-color: #86efac; }
+    .counter-card .counter-icon { font-size: 18px; }
+    .counter-card span { display: block; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: #475569; }
+    .counter-card strong { font-size: 34px; line-height: 1; color: #0f172a; }
+    .counter-card.open strong { color: #b91c1c; }
+    .counter-card.closed strong { color: #166534; }
+    .snag-pie-card { width: 170px; min-height: 112px; border-radius: 18px; background: linear-gradient(135deg, #ffffff 0%, #f8fbff 100%); border: 1px solid #dbeafe; box-shadow: 0 10px 22px rgba(15,23,42,0.06); padding: 10px; display: flex; align-items: center; justify-content: center; }
+    .snag-pie-card canvas { width: 100%; height: 100%; }
+    .snag-layout { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 16px; }
+    .snag-form-card, .snag-types-card, .snag-table-card { background: white; border: 1px solid #e2e8f0; border-radius: 16px; padding: 18px; box-shadow: 0 12px 24px rgba(15,23,42,0.06); }
+    .snag-form-card h3, .snag-types-card h3 { margin: 0 0 12px; font-size: 18px; color: #0f172a; }
+    .snag-form-card label, .snag-types-card label { display: block; margin-top: 10px; font-weight: 700; color: #334155; }
+    .snag-form-card input, .snag-form-card select, .snag-form-card textarea { width: 100%; padding: 12px 14px; margin-top: 8px; border: 1px solid #cbd5e1; border-radius: 12px; font-size: 14px; box-sizing: border-box; }
+    .snag-form-card textarea { min-height: 96px; resize: vertical; }
+    .snag-type-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .snag-type-item { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-radius: 12px; border: 1px solid #e2e8f0; background: #f8fafc; font-size: 14px; color: #334155; }
+    .snag-table-card table { margin-top: 0; }
+    .snag-table-card th { background: #2563eb; color: white; }
+    .modal, .popup { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(15,23,42,0.55); z-index: 1000; }
+    .modal.active, .popup.active { display: flex; }
+    .modal-content, .popup-content { width: min(520px, calc(100% - 40px)); background: white; border-radius: 18px; padding: 22px; box-shadow: 0 22px 45px rgba(15,23,42,0.25); position: relative; }
+    .modal-content h2, .popup-content h2 { margin: 0 0 18px; color: #0f172a; }
+    .modal-content label { display: block; margin-top: 14px; font-weight: 700; color: #334155; }
+    .modal-content input, .modal-content select, .modal-content textarea { width: 100%; padding: 12px 14px; margin-top: 8px; border: 1px solid #cbd5e1; border-radius: 12px; font-size: 14px; }
+    .modal-content textarea { min-height: 100px; resize: vertical; }
+    .button-row { display: flex; gap: 12px; margin-top: 18px; }
+    .button-primary { background: #2563eb; color: white; border: none; border-radius: 12px; padding: 12px 16px; cursor: pointer; }
+    .button-secondary { background: #e2e8f0; color: #0f172a; border: none; border-radius: 12px; padding: 12px 16px; cursor: pointer; }
+    .close-button { position: absolute; top: 18px; right: 18px; border: none; background: transparent; font-size: 22px; cursor: pointer; }
+    .snag-status { border-radius: 999px; padding: 6px 12px; font-weight: 700; font-size: 12px; }
+    .snag-open { background: #fee2e2; color: #b91c1c; }
+    .snag-closed { background: #d1fae5; color: #166534; }
+    @media (max-width: 1024px) { .cards { flex-wrap: wrap; } .card { flex: 1 1 calc(50% - 8px); max-width: none; } .chart-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .snag-layout { grid-template-columns: 1fr; } }
+    @media (max-width: 720px) { .main { margin-left: 0; padding: 16px; } .sidebar { position: relative; width: 100%; height: auto; flex-direction: row; flex-wrap: wrap; gap: 8px; } .sidebar button { flex: 1 1 140px; } .cards, .chart-grid, .snag-type-grid { grid-template-columns: 1fr; } .card { flex: 1 1 100%; } .snag-summary-row { flex-direction: column; align-items: stretch; } .snag-summary-counters { justify-content: flex-start; } .snag-pie-card { width: 100%; min-height: 140px; } }
+  </style>
+</head>
+<body>
+  <div class="sidebar">
+    <div class="logo">Packing Score Card</div>
+    <div class="section-title">Home</div>
+    <button class="active highlight-btn" onclick="showPage('home', event)">🏠 Dashboard</button>
+
+    <div class="section-title">KPI</div>
+    <button onclick="showPage('prod', event)">⚙️ Productivity</button>
+    <button onclick="showPage('oee', event)">📊 OEE</button>
+    <button onclick="showPage('volume', event)">📦 Volume</button>
+    <button onclick="showPage('planned', event)">🗓 Planned DT</button>
+    <button onclick="showPage('changeover', event)">🔄 Changeover</button>
+    <button onclick="showPage('unplanned', event)">⚠️ Unplanned</button>
+    <button onclick="showPage('breakdown', event)">🛠️ Breakdown</button>
+    <button onclick="showPage('waste', event)">🗑️ Waste</button>
+    <button onclick="showPage('stops', event)">⛔ Stops</button>
+    <button onclick="showPage('emp', event)">👷 Employees</button>
+    <button onclick="showPage('casual', event)">👤 Casual</button>
+
+    <div class="section-title">Data Entry</div>
+    <button class="special highlight-btn" onclick="openModal()">➕ Add KPI Data</button>
+
+    <div class="section-title">Snag</div>
+    <button class="highlight-btn" onclick="showPage('snag', event)">📋 Snag List</button>
+  </div>
+  <div class="main">
+    <div id="home" class="page active">
+      <h1>Dashboard Overview</h1>
+      <div class="cards" id="cards"></div>
+   <div class="chart-grid">
+
+  <div class="chart-box"><canvas id="homeChart1"></canvas></div>
+  <div class="chart-box"><canvas id="homeChart2"></canvas></div>
+  <div class="chart-box"><canvas id="homeChart3"></canvas></div>
+  <div class="chart-box"><canvas id="homeChart4"></canvas></div>
+  <div class="chart-box"><canvas id="homeChart5"></canvas></div>
+  <div class="chart-box"><canvas id="homeChart6"></canvas></div>
+  <div class="chart-box"><canvas id="homeChart7"></canvas></div>
+  <div class="chart-box"><canvas id="homeChart8"></canvas></div>
+  <div class="chart-box"><canvas id="homeChart9"></canvas></div>
+  <div class="chart-box"><canvas id="homeChart10"></canvas></div>
+  <div class="chart-box"><canvas id="homeChart11"></canvas></div>
+</div>
+  </div>
+    <div id="prod" class="page"></div>
+    <div id="oee" class="page"></div>
+    <div id="volume" class="page"></div>
+    <div id="planned" class="page"></div>
+    <div id="changeover" class="page"></div>
+    <div id="unplanned" class="page"></div>
+    <div id="breakdown" class="page"></div>
+    <div id="waste" class="page"></div>
+    <div id="stops" class="page"></div>
+    <div id="emp" class="page"></div>
+    <div id="casual" class="page"></div>
+    <div id="snag" class="page"></div>
+  </div>
+  <div id="dataModal" class="modal">
+    <div class="modal-content">
+      <button class="close-button" onclick="closeModal()">×</button>
+      <h2>Enter KPI Data</h2>
+      <label for="kpiSelect">KPI</label>
+      <select id="kpiSelect">
+        <option value="prod">Productivity</option>
+        <option value="oee">OEE</option>
+        <option value="volume">Volume</option>
+        <option value="planned">Planned DT</option>
+        <option value="changeover">Changeover</option>
+        <option value="unplanned">Unplanned</option>
+        <option value="breakdown">Breakdown</option>
+        <option value="waste">Waste</option>
+        <option value="stops">Stops</option>
+        <option value="emp">Employees</option>
+        <option value="casual">Casual</option>
+      </select>
+      <label for="monthSelect">Month</label>
+      <select id="monthSelect">
+        <option value="0">Jan</option>
+        <option value="1">Feb</option>
+        <option value="2">Mar</option>
+        <option value="3">Apr</option>
+        <option value="4">May</option>
+        <option value="5">Jun</option>
+        <option value="6">Jul</option>
+        <option value="7">Aug</option>
+        <option value="8">Sep</option>
+        <option value="9">Oct</option>
+        <option value="10">Nov</option>
+        <option value="11">Dec</option>
+      </select>
+      <label for="actualInput">Actual</label>
+      <input id="actualInput" type="number" placeholder="Actual value">
+      <label for="budgetInput">Budget</label>
+      <input id="budgetInput" type="number" placeholder="Budget value">
+      <div class="button-row">
+        <button class="button-primary" onclick="saveKPI()">Save</button>
+        <button class="button-secondary" onclick="closeModal()">Cancel</button>
+      </div>
+    </div>
+  </div>
+  <div id="calendarPopup" class="popup">
+    <div class="popup-content">
+      <button class="close-button" onclick="closePopup()">×</button>
+      <h2>اختر تاريخ الإغلاق</h2>
+      <input id="popupDate" type="date">
+      <div class="button-row">
+        <button class="button-primary" onclick="confirmClose()">Confirm</button>
+        <button class="button-secondary" onclick="closePopup()">Cancel</button>
+      </div>
+    </div>
+  </div>
+  <script>
+    const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    const icons = { prod: "⚙️", oee: "📊", volume: "📦", planned: "🗓️", changeover: "🔄", unplanned: "⚠️", breakdown: "🛠️", waste: "🗑️", stops: "⛔", emp: "👷", casual: "👤" };
+    const percentKPI = { prod: true, oee: true, planned: true, changeover: true, unplanned: true, breakdown: true, waste: true };
+    const higherIsBetter = { prod: true, oee: true, volume: true, emp: true, casual: true, planned: false, changeover: false, unplanned: false, breakdown: false, waste: false, stops: false };
+    const chartTitles = { prod: "Production", oee: "OEE", volume: "Volume", planned: "Planned Downtime", changeover: "Changeover", unplanned: "Unplanned Downtime", breakdown: "Breakdown", waste: "Waste", stops: "Stops per Shift", emp: "Employees", casual: "Casual" };
+    const chartInstances = {};
+    let snagChartInstance = null;
+    const data = {
+      prod: { name: "Productivity", actual: Array(12).fill(0), budget: Array(12).fill(0) },
+      oee: { name: "OEE", actual: Array(12).fill(0), budget: Array(12).fill(0) },
+      volume: { name: "Volume", actual: Array(12).fill(0), budget: Array(12).fill(0) },
+      planned: { name: "Planned DT", actual: Array(12).fill(0), budget: Array(12).fill(0) },
+      changeover: { name: "Changeover", actual: Array(12).fill(0), budget: Array(12).fill(0) },
+      unplanned: { name: "Unplanned", actual: Array(12).fill(0), budget: Array(12).fill(0) },
+      breakdown: { name: "Breakdown", actual: Array(12).fill(0), budget: Array(12).fill(0) },
+      waste: { name: "Waste", actual: Array(12).fill(0), budget: Array(12).fill(0) },
+      stops: { name: "Stops", actual: Array(12).fill(0), budget: Array(12).fill(0) },
+      emp: { name: "Employees", actual: Array(12).fill(0), budget: Array(12).fill(0) },
+      casual: { name: "Casual", actual: Array(12).fill(0), budget: Array(12).fill(0) }
+    };
+    let currentSnagIndex = null;
+    function applyServerData(serverData) {
+      Object.keys(data).forEach(function(key) {
+        const incoming = serverData && serverData[key];
+        if (incoming && Array.isArray(incoming.actual) && Array.isArray(incoming.budget)) {
+          data[key].actual = incoming.actual.slice(0, 12);
+          data[key].budget = incoming.budget.slice(0, 12);
+        } else {
+          data[key].actual = Array(12).fill(0);
+          data[key].budget = Array(12).fill(0);
+        }
+      });
+    }
+    function renderDashboard() {
+      buildCards();
+      const activePage = document.querySelector('.page.active');
+      if (activePage && activePage.id === 'home') {
+        renderHomeCharts();
+      } else if (activePage && data[activePage.id]) {
+        createChart(activePage.id, activePage.id);
+      }
+    }
+ function showPage(id, event) {
+      document.querySelectorAll('.page').forEach(page => page.classList.remove('active'));
+      document.querySelectorAll('.sidebar button').forEach(btn => btn.classList.remove('active'));
+
+      document.getElementById(id).classList.add('active');
+
+      if (event && event.currentTarget) event.currentTarget.classList.add('active');
+
+      if (data[id]) {
+        setTimeout(() => {
+          createChart(id, id);
+        }, 100);
+      }
+    }
+    function formatValue(value, isPercent) {
+      if (isPercent) return value.toFixed(1) + '%';
+      return Number.isInteger(value) ? value : value.toFixed(1);
+    }
+    function buildCards() {
+      const cards = document.getElementById('cards');
+      cards.innerHTML = '';
+      Object.keys(data).forEach(key => {
+        const item = data[key];
+        const isPercent = percentKPI[key] || false;
+        const actualSum = item.actual.reduce((sum, x) => sum + x, 0);
+        const budgetSum = item.budget.reduce((sum, x) => sum + x, 0);
+        const actualValue = key === 'volume' || key === 'emp' || key === 'casual' ? actualSum : actualSum / 12;
+        const budgetValue = key === 'volume' || key === 'emp' || key === 'casual' ? budgetSum : budgetSum / 12;
+        const success = higherIsBetter[key] ? actualValue >= budgetValue : actualValue <= budgetValue;
+        const card = document.createElement('button');
+        card.className = success ? 'card good' : 'card bad';
+        card.innerHTML = '<div class="card-top"><span class="icon">' + (icons[key] || '📌') + '</span><span class="card-status">' + (success ? 'Good' : 'Needs Attention') + '</span></div><h3>' + item.name + '</h3><p>' + formatValue(actualValue, isPercent) + '</p><div class="card-meta">Target ' + formatValue(budgetValue, isPercent) + '</div>';
+        card.onclick = (event) => { showPage(key, event); };
+        cards.appendChild(card);
+      });
+    }
+    function createChart(pageId, key) {
+      const page = document.getElementById(pageId);
+      if (!page) return;
+      const item = data[key];
+      const isPercent = percentKPI[key] || false;
+      const canvasId = key + 'Chart';
+      let rows = '';
+      for (let i = 0; i < months.length; i++) {
+        const actual = item.actual[i];
+        const budget = item.budget[i];
+        const gap = actual - budget;
+        const status = higherIsBetter[key] ? (actual >= budget ? '✅' : '❌') : (actual <= budget ? '✅' : '❌');
+        rows += '<tr><td>' + months[i] + '</td><td>' + formatValue(actual, isPercent) + '</td><td>' + formatValue(budget, isPercent) + '</td><td>' + formatValue(gap, isPercent) + '</td><td>' + status + '</td></tr>';
+      }
+
+      const hasCanvas = document.getElementById(canvasId);
+      if (!hasCanvas) {
+        page.innerHTML = '<h1>' + item.name + '</h1><div class="chart-box" style="height:420px; max-width: 1000px; margin: 0 auto 18px;"><canvas id="' + canvasId + '"></canvas></div><table><thead><tr><th>Month</th><th>Actual</th><th>Budget</th><th>Gap</th><th>Status</th></tr></thead><tbody id="' + canvasId + 'Rows"></tbody></table>';
+      }
+
+      const tableBody = document.getElementById(canvasId + 'Rows');
+      if (tableBody) {
+        tableBody.innerHTML = rows;
+      }
+
+      setTimeout(function() { renderChart(canvasId, item, key); }, 100);
+    }
+    function getChartType(key) {
+      return key === 'volume' || key === 'stops' || key === 'emp' || key === 'casual' ? 'bar' : 'line';
+    }
+    function getChartConfig(key, item) {
+      const isPercent = percentKPI[key] || false;
+      const chartType = getChartType(key);
+      return {
+        type: chartType,
+        data: {
+          labels: months,
+          datasets: [
+            {
+              label: 'Actual',
+              data: item.actual,
+              borderColor: '#3b82f6',
+              backgroundColor: chartType === 'bar' ? 'rgba(96, 165, 250, 0.7)' : 'rgba(59, 130, 246, 0.18)',
+              borderWidth: 2,
+              pointRadius: chartType === 'line' ? 4 : 0,
+              pointBackgroundColor: '#3b82f6',
+              pointBorderColor: '#3b82f6',
+              pointHoverRadius: 5,
+              fill: chartType === 'line',
+              tension: 0.3,
+              order: 1,
+              borderRadius: 6
+            },
+            {
+              label: 'Budget',
+              data: item.budget,
+              borderColor: '#ef4444',
+              backgroundColor: chartType === 'bar' ? 'rgba(252, 165, 165, 0.7)' : 'rgba(239, 68, 68, 0.08)',
+              borderWidth: 2,
+              borderDash: chartType === 'line' ? [6, 6] : [6, 4],
+              pointRadius: 0,
+              fill: chartType === 'line',
+              tension: 0.3,
+              order: 2,
+              borderRadius: 6
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: false,
+          plugins: {
+            legend: { position: 'top', labels: { font: { size: 12 } } },
+            title: { display: true, text: chartTitles[key] || item.name, font: { size: 15, weight: 'bold' } }
+          },
+          scales: {
+            x: {
+              ticks: { font: { size: 11, family: 'Arial' } },
+              grid: { display: false }
+            },
+            y: {
+              beginAtZero: true,
+              ticks: { font: { size: 11, family: 'Arial' } },
+              title: { display: false },
+              grid: { color: 'rgba(148, 163, 184, 0.2)' }
+            }
+          },
+          datasets: {
+            bar: {
+              barPercentage: 0.9,
+              categoryPercentage: 0.8
+            }
+          }
+        }
+      };
+    }
+    function renderChart(canvasId, item, key) {
+      const canvas = document.getElementById(canvasId);
+      if (!canvas) { console.warn('Canvas not found:', canvasId); return; }
+      const existing = chartInstances[canvasId];
+      if (existing) {
+        existing.data.datasets[0].data = item.actual;
+        existing.data.datasets[1].data = item.budget;
+        existing.options.plugins.title.text = chartTitles[key] || item.name;
+        existing.options.plugins.title.font = { size: 15, weight: 'bold' };
+        existing.options.animation = false;
+        existing.update();
+        return;
+      }
+      try {
+        chartInstances[canvasId] = new Chart(canvas, getChartConfig(key, item));
+      } catch (err) {
+        console.error('Error creating chart:', err);
+      }
+    }
+    function renderHomeCharts() {
+      const chartIds = [
+        'homeChart1','homeChart2','homeChart3','homeChart4',
+        'homeChart5','homeChart6','homeChart7','homeChart8',
+        'homeChart9','homeChart10','homeChart11'
+      ];
+
+      const keys = [
+        'prod','oee','volume','planned','changeover',
+        'unplanned','breakdown','waste','stops','emp','casual'
+      ];
+
+      keys.forEach(function(key, index) {
+        const canvas = document.getElementById(chartIds[index]);
+        if (!canvas) return;
+        const existing = chartInstances[canvas.id];
+        if (existing) {
+          existing.data.datasets[0].data = data[key].actual;
+          existing.data.datasets[1].data = data[key].budget;
+          existing.options.plugins.title.text = chartTitles[key] || data[key].name;
+          existing.options.animation = false;
+          existing.update();
+          return;
+        }
+
+        try {
+          chartInstances[canvas.id] = new Chart(canvas, getChartConfig(key, data[key]));
+        } catch (err) {
+          console.error('Error creating chart:', err);
+        }
+      });
+    }
+    function openModal() { document.getElementById('dataModal').classList.add('active'); }
+    function closeModal() { document.getElementById('dataModal').classList.remove('active'); }
+    function saveKPI() {
+      const key = document.getElementById('kpiSelect').value;
+      const month = Number(document.getElementById('monthSelect').value);
+      const actual = Number(document.getElementById('actualInput').value);
+      const budget = Number(document.getElementById('budgetInput').value);
+      if (!Number.isFinite(actual) || !Number.isFinite(budget)) { alert('Enter numeric values'); return; }
+
+      fetch('/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kpi: key, month: month, actual: actual, budget: budget })
+      })
+        .then(function(response) {
+          if (!response.ok) {
+            return response.json().then(function(errorBody) {
+              throw new Error(errorBody.error || 'Unable to save KPI data');
+            });
+          }
+          return response.json();
+        })
+        .then(function() {
+          closeModal();
+          loadServerData();
+        })
+        .catch(function(err) {
+          console.error('Unable to save KPI data', err);
+          alert(err.message || 'Unable to save KPI data');
+        });
+    }
+    function createSnagPage() {
+      const page = document.getElementById('snag');
+      if (!page) return;
+      page.innerHTML = '<h1>Snag List</h1><div class="snag-shell"><div class="snag-summary-row"><div class="snag-summary-left"><div class="snag-pie-card" style="width: 220px; min-height: 140px;"><canvas id="snagPieChart"></canvas></div><div class="snag-summary-counters"><div class="counter-card open"><span class="counter-icon">⚠️</span><span>Open</span><strong id="openCount">0</strong></div><div class="counter-card closed"><span class="counter-icon">✅</span><span>Closed</span><strong id="closedCount">0</strong></div></div></div></div><div class="snag-layout"><div class="snag-form-card"><h3>New Snag</h3><label>Line</label><select id="snagLine"><option value="خط التعبئة الآلي 1">خط التعبئة الآلي 1</option><option value="خط التعبئة الآلي 2">خط التعبئة الآلي 2</option><option value="خط التعبئة الآلي 3">خط التعبئة الآلي 3</option><option value="صالة التعبئة الآلي">صالة التعبئة الآلي</option><option value="خط التعبئة اليدوي الأفقي الأساسي">خط التعبئة اليدوي الأفقي الأساسي</option><option value="خط التعبئة اليدوي الإضافي">خط التعبئة اليدوي الإضافي</option><option value="صالة التعبئة اليدوي">صالة التعبئة اليدوي</option></select><label>Unit</label><input id="snagUnit" placeholder="Unit"><label>Defect</label><input id="snagDefect" placeholder="Defect"><label>Action</label><textarea id="snagAction" placeholder="Action"></textarea><div class="button-row"><button class="button-primary" onclick="addSnag()">Add Snag</button></div></div><div class="snag-types-card"><h3>Defect Types</h3><div class="snag-type-grid"><label class="snag-type-item"><input type="checkbox" id="typeMinor"> عيب بسيط | Minor Defect</label><label class="snag-type-item"><input type="checkbox" id="typeCondition"> افتقاد الحالة | Lack of Condition</label><label class="snag-type-item"><input type="checkbox" id="typeParts"> أجزاء زائدة | Unnecessary Parts</label><label class="snag-type-item"><input type="checkbox" id="typeHtra"> صعب الوصول | Hard To Reach</label><label class="snag-type-item"><input type="checkbox" id="typeSoc"> مصدر تلوث | Source of Contamination</label><label class="snag-type-item"><input type="checkbox" id="typeQuality"> عيب جودة | Quality Defect</label><label class="snag-type-item"><input type="checkbox" id="typeSafety"> عيب سلامة | Safety Defect</label></div></div></div><div class="snag-table-card"><table><thead><tr><th>Line</th><th>Unit</th><th>Defect</th><th>Type</th><th>Action</th><th>Status</th><th>Closing Date</th><th>Option</th></tr></thead><tbody id="snagTable"></tbody></table></div></div>';
+    }
+    function getSnagTypes() {
+      const types = [];
+      if (document.getElementById('typeMinor').checked) types.push('Minor');
+      if (document.getElementById('typeCondition').checked) types.push('Condition');
+      if (document.getElementById('typeParts').checked) types.push('Parts');
+      if (document.getElementById('typeHtra').checked) types.push('HTRA');
+      if (document.getElementById('typeSoc').checked) types.push('SOC');
+      if (document.getElementById('typeQuality').checked) types.push('Quality');
+      if (document.getElementById('typeSafety').checked) types.push('Safety');
+      return types.join(', ');
+    }
+    function addSnag() {
+      const line = document.getElementById('snagLine').value;
+      const unit = document.getElementById('snagUnit').value.trim();
+      const defect = document.getElementById('snagDefect').value.trim();
+      const action = document.getElementById('snagAction').value.trim();
+      const type = getSnagTypes();
+      if (!line || !defect) { alert('Please complete the required fields.'); return; }
+      const snags = JSON.parse(localStorage.getItem('snags') || '[]');
+      snags.push({ line, unit, defect, type, action, status: 'Open', closeDate: '' });
+      localStorage.setItem('snags', JSON.stringify(snags));
+      renderSnags();
+    }
+    function renderSnagSummary(snags) {
+      const openCount = snags.filter(function(item) { return item.status !== 'Closed'; }).length;
+      const closedCount = snags.length - openCount;
+      const openEl = document.getElementById('openCount');
+      const closedEl = document.getElementById('closedCount');
+      if (openEl) openEl.textContent = openCount;
+      if (closedEl) closedEl.textContent = closedCount;
+
+      const canvas = document.getElementById('snagPieChart');
+      if (!canvas) return;
+      if (snagChartInstance) {
+        snagChartInstance.data.datasets[0].data = [openCount, closedCount];
+        snagChartInstance.update();
+        return;
+      }
+      try {
+        snagChartInstance = new Chart(canvas, {
+          type: 'doughnut',
+          data: {
+            labels: ['Open', 'Closed'],
+            datasets: [{
+              data: [openCount, closedCount],
+              backgroundColor: ['#dc2626', '#16a34a'],
+              borderWidth: 0,
+              hoverOffset: 4
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            cutout: '72%'
+          }
+        });
+      } catch (err) {
+        console.error('Error creating snag chart:', err);
+      }
+    }
+    function renderSnags() {
+      const snags = JSON.parse(localStorage.getItem('snags') || '[]');
+      renderSnagSummary(snags);
+      const rows = snags.map(function(snag, index) {
+        return '<tr><td>' + snag.line + '</td><td>' + snag.unit + '</td><td>' + snag.defect + '</td><td>' + snag.type + '</td><td>' + snag.action + '</td><td><span class="snag-status ' + (snag.status === 'Closed' ? 'snag-closed' : 'snag-open') + '">' + snag.status + '</span></td><td>' + (snag.closeDate || '-') + '</td><td><button class="button-secondary" onclick="closeSnag(' + index + ')">Close</button> <button class="button-secondary" onclick="deleteSnag(' + index + ')">Delete</button></td></tr>';
+      }).join('');
+      const tableBody = document.getElementById('snagTable');
+      if (tableBody) tableBody.innerHTML = rows;
+    }
+    function closeSnag(index) {
+      const snags = JSON.parse(localStorage.getItem('snags') || '[]');
+      if (!snags[index]) return;
+      currentSnagIndex = index;
+      document.getElementById('popupDate').value = '';
+      document.getElementById('calendarPopup').classList.add('active');
+    }
+    function confirmClose() {
+      const date = document.getElementById('popupDate').value;
+      if (!date) { alert('Select a closing date'); return; }
+      const snags = JSON.parse(localStorage.getItem('snags') || '[]');
+      if (!snags[currentSnagIndex]) return;
+      snags[currentSnagIndex].status = 'Closed';
+      snags[currentSnagIndex].closeDate = date;
+      localStorage.setItem('snags', JSON.stringify(snags));
+      document.getElementById('calendarPopup').classList.remove('active');
+      renderSnags();
+    }
+    function deleteSnag(index) {
+      const snags = JSON.parse(localStorage.getItem('snags') || '[]');
+      snags.splice(index, 1);
+      localStorage.setItem('snags', JSON.stringify(snags));
+      renderSnags();
+    }
+    function closePopup() { document.getElementById('calendarPopup').classList.remove('active'); }
+    function loadServerData() {
+      fetch('/data')
+        .then(function(response) {
+          if (!response.ok) {
+            throw new Error('Unable to load KPI data');
+          }
+          return response.json();
+        })
+        .then(function(serverData) {
+          applyServerData(serverData);
+          renderDashboard();
+          if (!document.getElementById('snagTable')) {
+            createSnagPage();
+          }
+          renderSnags();
+        })
+        .catch(function(err) {
+          console.warn('Unable to load server data', err);
+          renderDashboard();
+          if (!document.getElementById('snagTable')) {
+            createSnagPage();
+          }
+          renderSnags();
+        });
+    }
+    document.addEventListener('DOMContentLoaded', function() {
+      createSnagPage();
+      renderSnags();
+      loadServerData();
+    });
+  </script>
+</body>
+</html>

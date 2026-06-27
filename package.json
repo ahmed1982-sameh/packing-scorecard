@@ -1,0 +1,20 @@
+{
+  "name": "packing-scorecard",
+  "version": "1.0.0",
+  "description": "Packing Scorecard Dashboard with Express and SQLite",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "dependencies": {
+    "express": "^5.2.1",
+    "sqlite3": "^5.1.7"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.4"
+  },
+  "engines": {
+    "node": "18.x"
+  }
+}
