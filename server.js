@@ -90,7 +90,7 @@ app.get('/', (req, res) => {
 app.get('/data', async (req, res) => {
   try {
     const rows = await allSql("SELECT kpi, month, actual, budget FROM scorecard ORDER BY kpi, month");
-    res.json(rows);
+  res.json(buildDataPayload(rows));
   } catch (error) {
     res.status(500).json({ error: "Failed to fetch data" });
   }
